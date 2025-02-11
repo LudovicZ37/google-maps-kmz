@@ -23,10 +23,10 @@
         #search-button {
             padding: 10px;
         }
-        /* Style du pop-up personnalisé */
+        /* Style du pop-up */
         #custom-popup {
             position: fixed;
-            top: 50%;
+            bottom: 10%;
             left: 50%;
             transform: translate(-50%, -50%);
             background-color: white;
@@ -52,8 +52,7 @@
     <div id="custom-popup"></div>
 
     <script>
-        let map, autocomplete;
-        let bounds;
+        let map, bounds;
         let kmlLayers = [];
         let labels = [];
 
@@ -68,21 +67,6 @@
                 mapTypeId: 'terrain'
             });
 
-            // Auto-complétion Google Places
-            autocomplete = new google.maps.places.Autocomplete(
-                document.getElementById('address'),
-                { types: ['geocode'] }
-            );
-
-            autocomplete.addListener('place_changed', function() {
-                var place = autocomplete.getPlace();
-                if (!place.geometry) {
-                    alert("⚠️ L'adresse sélectionnée est invalide !");
-                    return;
-                }
-                handleAddress(place.geometry.location);
-            });
-
             // Liste des fichiers KML et leur nom
             let kmlFiles = [
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml', name: "PARC DU MOULIN DE PIERRE" },
@@ -93,7 +77,8 @@
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "PARC DE LA VENERIE OUEST" }
             ];
 
-            // Charger les fichiers KML
+            let loadCount = 0;
+
             kmlFiles.forEach(zone => {
                 let kmlLayer = new google.maps.KmlLayer({
                     url: zone.url,
@@ -105,28 +90,23 @@
 
                 kmlLayer.addListener('status_changed', function() {
                     console.log(`📂 Chargement du fichier KML : ${zone.name}, Statut: ${kmlLayer.getStatus()}`);
-                    if (kmlLayer.getStatus() !== 'OK') {
+                    if (kmlLayer.getStatus() === 'OK') {
+                        // Placer une étiquette au centre du KML
+                        let label = new google.maps.InfoWindow({
+                            content: `<div style="font-weight: bold; color: black; font-size: 16px;">${zone.name}</div>`
+                        });
+                        labels.push(label);
+                    } else {
                         console.error(`❌ Erreur de chargement du fichier KML : ${zone.name}`);
                     }
-                });
 
-                // Ajouter une étiquette à côté du KML
-                let label = new google.maps.InfoWindow({
-                    content: `<div style="font-weight: bold; color: black; font-size: 16px;">${zone.name}</div>`
-                });
-
-                labels.push({ label, position: null });
-            });
-
-            setTimeout(() => {
-                map.fitBounds(bounds);
-                labels.forEach(({ label, position }) => {
-                    if (position) {
-                        label.setPosition(position);
-                        label.open(map);
+                    // Vérifier quand tous les fichiers KML sont chargés
+                    loadCount++;
+                    if (loadCount === kmlFiles.length) {
+                        adjustMapView();
                     }
                 });
-            }, 2000);
+            });
 
             // Recherche manuelle d'adresse
             document.getElementById('search-button').addEventListener('click', function() {
@@ -141,6 +121,14 @@
                     }
                 });
             });
+        }
+
+        function adjustMapView() {
+            // Vérifie si des bounds sont définis et ajuste la carte
+            if (!bounds.isEmpty()) {
+                map.fitBounds(bounds);
+            }
+            labels.forEach(label => label.open(map));
         }
 
         function handleAddress(location) {
