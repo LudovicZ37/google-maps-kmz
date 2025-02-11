@@ -23,6 +23,22 @@
         #search-button {
             padding: 10px;
         }
+        /* Style du pop-up personnalisé */
+        #custom-popup {
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+            font-size: 18px;
+            font-weight: bold;
+            display: none;
+            text-align: center;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -32,21 +48,21 @@
     </div>
     <div id="map"></div>
 
+    <!-- Pop-up personnalisé -->
+    <div id="custom-popup"></div>
+
     <script>
         let map, autocomplete;
-        let bounds; // Déclaration correcte des bounds
+        let bounds = new google.maps.LatLngBounds();
         let kmlLayers = [];
+        let labels = []; // Tableau des étiquettes
 
         function initMap() {
             console.log("✅ Initialisation de la carte...");
 
-            bounds = new google.maps.LatLngBounds(); // Initialisation correcte
-
-            var initialLocation = { lat: 47.394144, lng: 0.68484 }; // Centrage sur Tours
-
             map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 8,
-                center: initialLocation,
+                center: { lat: 47.394144, lng: 0.68484 }, // Centrage sur Tours
                 mapTypeId: 'terrain',
                 streetViewControl: true,
                 mapTypeControl: true,
@@ -71,20 +87,20 @@
                 handleAddress(place.geometry.location);
             });
 
-            // Liste des fichiers KML
+            // Liste des fichiers KML avec leur nom associé
             var kmlFiles = [
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml'
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml', name: "MP Ultra Local" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml', name: "BO Ultra Local" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra Local.kml', name: "RENA Ultra Local" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml', name: "HC Ultra Local" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml', name: "SJ Ultra Local" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "VO Ultra Local" }
             ];
 
             // Charger les fichiers KML via Google Maps API
-            kmlFiles.forEach(url => {
+            kmlFiles.forEach(zone => {
                 let kmlLayer = new google.maps.KmlLayer({
-                    url: url,
+                    url: zone.url,
                     map: map,
                     preserveViewport: true
                 });
@@ -92,12 +108,26 @@
                 kmlLayers.push(kmlLayer);
 
                 kmlLayer.addListener('status_changed', function() {
-                    console.log(`📂 Chargement du fichier KML : ${url}, Statut: ${kmlLayer.getStatus()}`);
+                    console.log(`📂 Chargement du fichier KML : ${zone.name}, Statut: ${kmlLayer.getStatus()}`);
                     if (kmlLayer.getStatus() !== 'OK') {
-                        console.error(`❌ Erreur de chargement du fichier KML : ${url}`);
+                        console.error(`❌ Erreur de chargement du fichier KML : ${zone.name}`);
                     }
                 });
+
+                // Ajout d'une étiquette de texte (sans fond ni contour)
+                let label = new google.maps.InfoWindow({
+                    content: `<div style="font-weight: bold; color: black;">${zone.name}</div>`,
+                    position: { lat: 47.394144, lng: 0.68484 } // À adapter si possible pour être au centre du KML
+                });
+
+                labels.push(label);
             });
+
+            // Ajuster le zoom après le chargement des KML
+            setTimeout(() => {
+                map.fitBounds(bounds);
+                labels.forEach(label => label.open(map));
+            }, 2000); // Petite attente pour s'assurer du chargement des KML
 
             // Recherche manuelle d'adresse
             document.getElementById('search-button').addEventListener('click', function() {
@@ -116,10 +146,10 @@
 
         function handleAddress(location) {
             map.setCenter(location);
-            
-            let marker = new google.maps.Marker({
-                position: location,
-                map: map
+
+            new google.maps.Marker({
+                map: map,
+                position: location
             });
 
             console.log("📍 Vérification de l'adresse :", location.lat(), location.lng());
@@ -136,10 +166,20 @@
             });
 
             if (isInside) {
-                alert("🎉 Bravo, vous pouvez bénéficier de l'offre Ultra Local !");
+                showPopup("🎉 Bravo, vous pouvez bénéficier de l'offre Ultra Local !");
             } else {
-                alert("🎉 Bravo, vous pouvez bénéficier de l'offre Local !");
+                showPopup("🎉 Bravo, vous pouvez bénéficier de l'offre Local !");
             }
+        }
+
+        function showPopup(message) {
+            let popup = document.getElementById("custom-popup");
+            popup.innerHTML = message;
+            popup.style.display = "block";
+
+            setTimeout(() => {
+                popup.style.display = "none";
+            }, 3000); // Disparition automatique après 3 secondes
         }
     </script>
     
