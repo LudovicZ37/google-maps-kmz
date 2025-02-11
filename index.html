@@ -30,7 +30,7 @@
 
     <script>
         let map, autocomplete;
-        let kmlLayers = [];
+        let polygons = [];
 
         function initMap() {
             var initialLocation = { lat: 48.8566, lng: 2.3522 }; // Paris
@@ -55,35 +55,18 @@
                 handleAddress(place.geometry.location);
             });
 
-            // Liste des fichiers KML (avec liens corrects en raw.githubusercontent.com)
+            // Liste des fichiers KML à charger
             var kmlFiles = [
                 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra%20Local.kml',
-                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml'
+                'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml'
             ];
 
-            // Affichage des fichiers KML sur la carte
+            // Charger les fichiers KML et extraire les polygones
             kmlFiles.forEach(function(url) {
-                var kmlLayer = new google.maps.KmlLayer({
-                    url: url,
-                    map: map,
-                    preserveViewport: true
-                });
-
-                kmlLayer.addListener('status_changed', function() {
-                    console.log("Statut du fichier KML :", kmlLayer.getStatus());
-                    if (kmlLayer.getStatus() !== 'OK') {
-                        console.error("⚠️ Le fichier KML suivant ne peut pas être chargé :", url);
-                    }
-                });
-
-                kmlLayers.push(kmlLayer);
+                loadKMLPolygons(url);
             });
 
-            // Recherche d'adresse manuelle
+            // Recherche manuelle d'adresse
             document.getElementById('search-button').addEventListener('click', function() {
                 var address = document.getElementById('address').value;
                 var geocoder = new google.maps.Geocoder();
@@ -105,15 +88,11 @@
                 position: location
             });
 
-            // Vérifie si l'adresse est dans un des fichiers KML
             let isInside = false;
-
-            kmlLayers.forEach(layer => {
-                layer.addListener('status_changed', function() {
-                    if (layer.getStatus() === 'OK') {
-                        isInside = true;
-                    }
-                });
+            polygons.forEach(polygon => {
+                if (google.maps.geometry.poly.containsLocation(location, polygon)) {
+                    isInside = true;
+                }
             });
 
             if (isInside) {
@@ -122,11 +101,40 @@
                 window.alert("🎉 Bravo, vous pouvez bénéficier de l'offre Local !");
             }
         }
+
+        function loadKMLPolygons(kmlUrl) {
+            fetch(kmlUrl)
+                .then(response => response.text())
+                .then(kmlText => {
+                    let parser = new DOMParser();
+                    let kml = parser.parseFromString(kmlText, "text/xml");
+                    let coordinates = kml.getElementsByTagName("coordinates");
+
+                    for (let i = 0; i < coordinates.length; i++) {
+                        let coordsArray = coordinates[i].textContent.trim().split(/\s+/).map(coord => {
+                            let [lng, lat] = coord.split(",").map(Number);
+                            return { lat, lng };
+                        });
+
+                        let polygon = new google.maps.Polygon({
+                            paths: coordsArray,
+                            map: map,
+                            strokeColor: "#FF0000",
+                            strokeOpacity: 0.8,
+                            strokeWeight: 2,
+                            fillColor: "#FF0000",
+                            fillOpacity: 0.35
+                        });
+
+                        polygons.push(polygon);
+                    }
+                })
+                .catch(error => console.error("Erreur de chargement KML :", error));
+        }
     </script>
     
-<script 
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap"
-    async>
-</script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap">
+    </script>
 </body>
 </html>
