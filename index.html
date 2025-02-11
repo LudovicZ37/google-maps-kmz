@@ -19,6 +19,11 @@
         #search-button {
             padding: 10px;
         }
+        #result-message {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -31,8 +36,7 @@
 
     <script>
         let map, autocomplete;
-        let kmlLayers = [];
-        let polygons = []; // Stocke les polygones des KML
+        let polygons = []; // Liste des polygones des fichiers KML
 
         function initMap() {
             var initialLocation = { lat: 48.8566, lng: 2.3522 }; // Paris
@@ -57,20 +61,18 @@
                 handleAddress(place.geometry.location);
             });
 
-            // Liste des fichiers KML
+            // Liste des fichiers KML après conversion de KMZ
             var kmlFiles = [
                 'https://github.com/LudovicZ37/google-maps-kmz/raw/main/MP%20Ultra%20Local.kml',
-                'https://github.com/LudovicZ37/google-maps-kmz/raw/main/BO%20Ultra%20Local.kml'
+                'https://github.com/LudovicZ37/google-maps-kmz/raw/main/BO%20Ultra%20Local.kml',
+                'https://github.com/LudovicZ37/google-maps-kmz/raw/main/VO%20Ultra%20Local.kml',
+                'https://github.com/LudovicZ37/google-maps-kmz/raw/main/HC%20Ultra%20Local.kml',
+                'https://github.com/LudovicZ37/google-maps-kmz/raw/main/RENA%20Ultra%20Local.kml',
+                'https://github.com/LudovicZ37/google-maps-kmz/raw/main/SJ%20Ultra%20Local.kml'
             ];
 
             // Charger chaque KML et extraire les polygones
             kmlFiles.forEach(function(url) {
-                var kmlLayer = new google.maps.KmlLayer({
-                    url: url,
-                    map: map,
-                    preserveViewport: true
-                });
-                kmlLayers.push(kmlLayer);
                 loadKMLPolygons(url);
             });
 
@@ -143,7 +145,7 @@
     </script>
     
     <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places,geometry&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap">
     </script>
 </body>
 </html>
