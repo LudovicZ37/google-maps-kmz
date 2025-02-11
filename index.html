@@ -89,7 +89,8 @@
 
         function handleAddress(location) {
             map.setCenter(location);
-            new google.maps.marker.AdvancedMarkerElement({
+
+            new google.maps.Marker({
                 map: map,
                 position: location
             });
