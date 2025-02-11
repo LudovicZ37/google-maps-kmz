@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carte Google Maps avec KMZ et Recherche d'Adresse</title>
+    <title>Carte Google Maps avec plusieurs fichiers KMZ</title>
     <style>
         #map {
             height: 600px;
@@ -39,10 +39,19 @@
                 center: initialLocation
             });
 
-            // Chargement du fichier KMZ
-            var kmzLayer = new google.maps.KmlLayer({
-                url: 'https://example.com/path/to/your/file.kmz', // Remplacez par l'URL de votre fichier KMZ
-                map: map
+            // Liste des fichiers KMZ à ajouter
+            var kmzFiles = [
+                'https://github.com/LudovicZ37/google-maps-kmz/raw/main/MP%20Ultra%20Local.kmz',
+                'https://github.com/LudovicZ37/google-maps-kmz/raw/main/BO%20Ultra%20Local.kmz'
+            ];
+
+            // Ajout de chaque fichier KMZ sur la carte
+            kmzFiles.forEach(function(url) {
+                new google.maps.KmlLayer({
+                    url: url,
+                    map: map,
+                    preserveViewport: true
+                });
             });
 
             // Gestionnaire d'événements pour la recherche d'adresse
@@ -69,3 +78,4 @@
     </script>
 </body>
 </html>
+        
