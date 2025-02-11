@@ -11,10 +11,14 @@
         }
         #search-container {
             margin-bottom: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         #address {
             width: 300px;
             padding: 10px;
+            margin-right: 5px;
         }
         #search-button {
             padding: 10px;
@@ -31,13 +35,21 @@
     <script>
         let map, autocomplete;
         let polygons = [];
+        let bounds = new google.maps.LatLngBounds(); // Définition des limites pour ajuster le zoom
 
         function initMap() {
-            var initialLocation = { lat: 46.603354, lng: 1.888334 };
+            var initialLocation = { lat: 47.394144, lng: 0.68484 }; // Centrage sur Tours
 
             map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 12,
-                center: initialLocation
+                zoom: 8, // Zoom initial
+                center: initialLocation,
+                mapTypeId: 'terrain', // Affichage du relief
+                streetViewControl: true, // Activation de Street View
+                mapTypeControl: true, // Activation des boutons Plan/Satellite
+                mapTypeControlOptions: {
+                    style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+                    position: google.maps.ControlPosition.TOP_LEFT
+                }
             });
 
             // Auto-complétion Google Places
@@ -70,6 +82,7 @@
 
             Promise.all(promises).then(() => {
                 console.log("✅ Tous les fichiers KML sont chargés.");
+                map.fitBounds(bounds); // Ajuste le zoom après chargement des polygones
             });
 
             // Recherche manuelle d'adresse
@@ -124,7 +137,9 @@
                     for (let i = 0; i < coordinates.length; i++) {
                         let coordsArray = coordinates[i].textContent.trim().split(/\s+/).map(coord => {
                             let [lng, lat] = coord.split(",").map(Number);
-                            return { lat, lng };
+                            let latLng = new google.maps.LatLng(lat, lng);
+                            bounds.extend(latLng); // Ajoute les points aux limites pour ajuster le zoom
+                            return latLng;
                         });
 
                         if (coordsArray.length > 2) {
