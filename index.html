@@ -39,13 +39,13 @@
             text-align: center;
             z-index: 1000;
         }
+        /* Étiquette des zones */
         .zone-label {
             background: none;
             border: none;
             font-size: 16px;
             font-weight: bold;
             color: black;
-            text-align: center;
             white-space: nowrap;
         }
     </style>
@@ -111,7 +111,7 @@
                 kmlLayer.addListener('status_changed', function () {
                     console.log(`📂 Chargement du fichier KML : ${zone.name}, Statut: ${kmlLayer.getStatus()}`);
                     if (kmlLayer.getStatus() === 'OK') {
-                        addLabelToZone(zone.name);
+                        extractKmlCenter(zone.url, zone.name);
                     } else {
                         console.error(`❌ Erreur de chargement du fichier KML : ${zone.name}`);
                     }
@@ -182,26 +182,43 @@
             }, 3000);
         }
 
-        function addLabelToZone(zoneName) {
-            let label = new google.maps.Marker({
-                position: map.getCenter(), // TEMP : à améliorer avec un point précis
-                map: map,
-                label: {
-                    text: zoneName,
-                    fontSize: "16px",
-                    fontWeight: "bold",
-                    color: "black"
-                },
-                icon: {
-                    path: google.maps.SymbolPath.CIRCLE,
-                    scale: 0 // Invisible
-                }
-            });
-            labels.push(label);
+        async function extractKmlCenter(kmlUrl, zoneName) {
+            try {
+                let response = await fetch(kmlUrl);
+                let text = await response.text();
+                let parser = new DOMParser();
+                let kml = parser.parseFromString(text, "text/xml");
+
+                let coordinates = kml.getElementsByTagName("coordinates");
+                if (coordinates.length === 0) return;
+
+                let coordsArray = coordinates[0].textContent.trim().split(/\s+/).map(coord => {
+                    let [lng, lat] = coord.split(",").map(Number);
+                    return { lat, lng };
+                });
+
+                let center = {
+                    lat: coordsArray.reduce((sum, p) => sum + p.lat, 0) / coordsArray.length,
+                    lng: coordsArray.reduce((sum, p) => sum + p.lng, 0) / coordsArray.length
+                };
+
+                new google.maps.Marker({
+                    position: center,
+                    map: map,
+                    label: {
+                        text: zoneName,
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                        color: "black"
+                    },
+                    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 }
+                });
+
+            } catch (error) {
+                console.error("Erreur lors de l'extraction des coordonnées du KML :", error);
+            }
         }
     </script>
-
-    <script async defer 
 
     <script async defer 
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap">
