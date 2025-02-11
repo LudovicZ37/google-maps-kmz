@@ -26,17 +26,17 @@
         /* Style du pop-up personnalisé */
         #custom-popup {
             position: fixed;
-            top: 40%;
+            top: 45%;
             left: 50%;
             transform: translate(-50%, -50%);
             background-color: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
-            display: none;
             text-align: center;
+            display: none;
             z-index: 1000;
         }
     </style>
@@ -53,12 +53,14 @@
 
     <script>
         let map, autocomplete;
-        let bounds = new google.maps.LatLngBounds();
+        let bounds;
         let kmlLayers = [];
         let labels = []; // Tableau des étiquettes
 
         function initMap() {
             console.log("✅ Initialisation de la carte...");
+
+            bounds = new google.maps.LatLngBounds();
 
             map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 8,
@@ -88,10 +90,10 @@
             });
 
             // Liste des fichiers KML avec leur nom associé
-            var kmlFiles = [
+            let kmlFiles = [
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml', name: "PARC DU MOULIN DE PIERRE" },
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml', name: "PARC DE BONNEVAL" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra Local.kml', name: "PARC DE LA RENARDIERE" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra%20Local.kml', name: "PARC DE LA RENARDIERE" },
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml', name: "PARC DE LA HAUTE CHEVRE" },
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml', name: "CENTRALE HYDRO ANTOIGNE" },
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "PARC DE LA VENERIE OUEST" }
@@ -114,10 +116,10 @@
                     }
                 });
 
-                // Ajout d'une étiquette de texte (sans fond ni contour)
+                // Ajout d'une étiquette de texte
                 let label = new google.maps.InfoWindow({
                     content: `<div style="font-weight: bold; color: black;">${zone.name}</div>`,
-                    position: { lat: 47.394144, lng: 0.68484 } // À adapter si possible pour être au centre du KML
+                    position: { lat: 47.394144, lng: 0.68484 } // À adapter pour être au centre du KML
                 });
 
                 labels.push(label);
@@ -127,7 +129,7 @@
             setTimeout(() => {
                 map.fitBounds(bounds);
                 labels.forEach(label => label.open(map));
-            }, 2000); // Petite attente pour s'assurer du chargement des KML
+            }, 2000);
 
             // Recherche manuelle d'adresse
             document.getElementById('search-button').addEventListener('click', function() {
@@ -179,7 +181,7 @@
 
             setTimeout(() => {
                 popup.style.display = "none";
-            }, 3000); // Disparition automatique après 3 secondes
+            }, 3000);
         }
     </script>
     
