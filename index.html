@@ -39,18 +39,27 @@
                 center: initialLocation
             });
 
-            // Liste des fichiers KMZ à ajouter
+            // Liste des fichiers KMZ à ajouter (GitHub ou Google Drive)
             var kmzFiles = [
                 'https://github.com/LudovicZ37/google-maps-kmz/raw/main/MP%20Ultra%20Local.kmz',
                 'https://github.com/LudovicZ37/google-maps-kmz/raw/main/BO%20Ultra%20Local.kmz'
+                // Alternative Google Drive :
+                // 'https://drive.google.com/uc?export=download&id=VOTRE_ID_DE_FICHIER_KMZ'
             ];
 
             // Ajout de chaque fichier KMZ sur la carte
             kmzFiles.forEach(function(url) {
-                new google.maps.KmlLayer({
+                var kmlLayer = new google.maps.KmlLayer({
                     url: url,
                     map: map,
                     preserveViewport: true
+                });
+
+                kmlLayer.addListener('status_changed', function() {
+                    console.log("Statut du fichier KMZ :", url, kmlLayer.getStatus());
+                    if (kmlLayer.getStatus() !== 'OK') {
+                        alert('⚠️ Le fichier KMZ suivant ne peut pas être chargé : ' + url);
+                    }
                 });
             });
 
@@ -67,7 +76,7 @@
                             position: results[0].geometry.location
                         });
                     } else {
-                        alert('Adresse non trouvée: ' + status);
+                        alert('⚠️ Adresse non trouvée: ' + status);
                     }
                 });
             });
@@ -78,4 +87,3 @@
     </script>
 </body>
 </html>
-        
