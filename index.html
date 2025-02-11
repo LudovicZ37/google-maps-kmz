@@ -8,6 +8,7 @@
         #map {
             height: 600px;
             width: 100%;
+            position: relative;
         }
         #search-container {
             margin-bottom: 10px;
@@ -26,7 +27,7 @@
         /* Style du pop-up personnalisé */
         #custom-popup {
             position: fixed;
-            top: 45%;
+            bottom: 15%;
             left: 50%;
             transform: translate(-50%, -50%);
             background-color: white;
@@ -41,12 +42,13 @@
         }
         .map-label {
             position: absolute;
-            transform: translate(-50%, -50%);
-            font-size: 1em;
+            font-size: 14px;
             font-weight: bold;
             color: black;
             white-space: nowrap;
             pointer-events: none;
+            background: transparent;
+            text-shadow: 1px 1px 4px rgba(255, 255, 255, 0.7); /* Légère ombre pour la visibilité */
         }
     </style>
 </head>
@@ -100,12 +102,12 @@
 
             // Liste des fichiers KML avec leur nom associé
             let kmlFiles = [
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml', name: "PARC DU MOULIN DE PIERRE" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml', name: "PARC DE BONNEVAL" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra%20Local.kml', name: "PARC DE LA RENARDIERE" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml', name: "PARC DE LA HAUTE CHEVRE" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml', name: "CENTRALE HYDRO ANTOIGNE" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "PARC DE LA VENERIE OUEST" }
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml', name: "PARC DU MOULIN DE PIERRE", labelOffset: {lat: 0.001, lng: 0.001} },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml', name: "PARC DE BONNEVAL", labelOffset: {lat: -0.001, lng: 0.001} },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra%20Local.kml', name: "PARC DE LA RENARDIERE", labelOffset: {lat: 0.001, lng: -0.001} },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml', name: "PARC DE LA HAUTE CHEVRE", labelOffset: {lat: -0.001, lng: -0.001} },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml', name: "CENTRALE HYDRO ANTOIGNE", labelOffset: {lat: 0.002, lng: 0.002} },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "PARC DE LA VENERIE OUEST", labelOffset: {lat: -0.002, lng: 0.002} }
             ];
 
             // Charger les fichiers KML et ajouter les étiquettes
@@ -125,28 +127,22 @@
                     }
                 });
 
-                // Ajouter un label attaché au centre du KML
-                let labelDiv = document.createElement("div");
-                labelDiv.className = "map-label";
-                labelDiv.innerHTML = zone.name;
-                document.body.appendChild(labelDiv);
-
-                let label = {
-                    element: labelDiv,
-                    position: { lat: 47.394144, lng: 0.68484 } // À remplacer par le centre du KML
-                };
+                // Ajouter une étiquette positionnée légèrement à côté du centre du KML
+                let label = new google.maps.InfoWindow({
+                    content: `<div class="map-label">${zone.name}</div>`,
+                    position: {
+                        lat: 47.394144 + zone.labelOffset.lat,
+                        lng: 0.68484 + zone.labelOffset.lng
+                    }
+                });
 
                 labels.push(label);
             });
 
-            // Ajustement du zoom sur toutes les zones
             setTimeout(() => {
+                labels.forEach(label => label.open(map));
                 map.fitBounds(bounds);
-                updateLabels();
             }, 2000);
-
-            map.addListener("zoom_changed", updateLabels);
-            map.addListener("center_changed", updateLabels);
 
             // Recherche manuelle d'adresse
             document.getElementById('search-button').addEventListener('click', function() {
@@ -175,15 +171,6 @@
 
             let isInside = false;
 
-            kmlLayers.forEach(layer => {
-                layer.addListener('status_changed', function() {
-                    console.log("Statut du fichier KML :", layer.getStatus());
-                    if (layer.getStatus() !== 'OK') {
-                        console.error("Le fichier KML ne peut pas être chargé :", layer.getUrl());
-                    }
-                });
-            });
-
             if (isInside) {
                 showPopup("🎉 Bravo, vous pouvez bénéficier de l'offre Ultra Local !");
             } else {
@@ -200,20 +187,10 @@
                 popup.style.display = "none";
             }, 3000);
         }
-
-        function updateLabels() {
-            labels.forEach(label => {
-                let projection = map.getProjection();
-                let position = projection.fromLatLngToPoint(new google.maps.LatLng(label.position));
-                label.element.style.left = position.x + "px";
-                label.element.style.top = position.y + "px";
-                label.element.style.fontSize = map.getZoom() / 2 + "px";
-            });
-        }
     </script>
     
     <script async defer 
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places,geometry&callback=initMap">
     </script>
 </body>
 </html>
