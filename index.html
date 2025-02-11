@@ -23,13 +23,6 @@
         #search-button {
             padding: 10px;
         }
-        .label-text {
-            position: absolute;
-            font-size: 14px;
-            font-weight: bold;
-            color: black;
-            white-space: nowrap;
-        }
         /* Style du pop-up personnalisé */
         #custom-popup {
             position: fixed;
@@ -40,7 +33,7 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
             display: none;
             text-align: center;
@@ -60,25 +53,22 @@
 
     <script>
         let map, autocomplete;
-        let bounds = new google.maps.LatLngBounds();
+        let bounds;
         let kmlLayers = [];
         let labels = [];
 
         function initMap() {
             console.log("✅ Initialisation de la carte...");
 
+            bounds = new google.maps.LatLngBounds();
+
             map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 8,
-                center: { lat: 47.394144, lng: 0.68484 }, // Centrage sur Tours
-                mapTypeId: 'terrain',
-                streetViewControl: true,
-                mapTypeControl: true,
-                mapTypeControlOptions: {
-                    style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
-                    position: google.maps.ControlPosition.TOP_LEFT
-                }
+                center: { lat: 47.394144, lng: 0.68484 }, // Tours
+                mapTypeId: 'terrain'
             });
 
+            // Auto-complétion Google Places
             autocomplete = new google.maps.places.Autocomplete(
                 document.getElementById('address'),
                 { types: ['geocode'] }
@@ -93,52 +83,56 @@
                 handleAddress(place.geometry.location);
             });
 
-            var kmlFiles = [
+            // Liste des fichiers KML et leur nom
+            let kmlFiles = [
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml', name: "PARC DU MOULIN DE PIERRE" },
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml', name: "PARC DE BONNEVAL" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra Local.kml', name: "PARC DE LA RENARDIERE" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra%20Local.kml', name: "PARC DE LA RENARDIERE" },
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml', name: "PARC DE LA HAUTE CHEVRE" },
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml', name: "CENTRALE HYDRO ANTOIGNE" },
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "PARC DE LA VENERIE OUEST" }
             ];
 
+            // Charger les fichiers KML
             kmlFiles.forEach(zone => {
                 let kmlLayer = new google.maps.KmlLayer({
                     url: zone.url,
                     map: map,
                     preserveViewport: true
                 });
+
                 kmlLayers.push(kmlLayer);
 
-                kmlLayer.addListener('defaultviewport_changed', function() {
-                    let center = kmlLayer.getDefaultViewport().getCenter();
-                    let label = new google.maps.Marker({
-                        position: center,
-                        map: map,
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 0,
-                            fillOpacity: 0,
-                            strokeWeight: 0
-                        },
-                        label: {
-                            text: zone.name,
-                            color: "black",
-                            fontSize: "14px",
-                            fontWeight: "bold"
-                        }
-                    });
-                    labels.push(label);
+                kmlLayer.addListener('status_changed', function() {
+                    console.log(`📂 Chargement du fichier KML : ${zone.name}, Statut: ${kmlLayer.getStatus()}`);
+                    if (kmlLayer.getStatus() !== 'OK') {
+                        console.error(`❌ Erreur de chargement du fichier KML : ${zone.name}`);
+                    }
                 });
+
+                // Ajouter une étiquette à côté du KML
+                let label = new google.maps.InfoWindow({
+                    content: `<div style="font-weight: bold; color: black; font-size: 16px;">${zone.name}</div>`
+                });
+
+                labels.push({ label, position: null });
             });
 
             setTimeout(() => {
                 map.fitBounds(bounds);
+                labels.forEach(({ label, position }) => {
+                    if (position) {
+                        label.setPosition(position);
+                        label.open(map);
+                    }
+                });
             }, 2000);
 
+            // Recherche manuelle d'adresse
             document.getElementById('search-button').addEventListener('click', function() {
-                var address = document.getElementById('address').value;
-                var geocoder = new google.maps.Geocoder();
+                let address = document.getElementById('address').value;
+                let geocoder = new google.maps.Geocoder();
+
                 geocoder.geocode({ 'address': address }, function(results, status) {
                     if (status === 'OK') {
                         handleAddress(results[0].geometry.location);
@@ -157,7 +151,18 @@
                 position: location
             });
 
+            console.log("📍 Vérification de l'adresse :", location.lat(), location.lng());
+
             let isInside = false;
+
+            kmlLayers.forEach(layer => {
+                layer.addListener('status_changed', function() {
+                    console.log("Statut du fichier KML :", layer.getStatus());
+                    if (layer.getStatus() !== 'OK') {
+                        console.error("Le fichier KML ne peut pas être chargé :", layer.getUrl());
+                    }
+                });
+            });
 
             if (isInside) {
                 showPopup("🎉 Bravo, vous pouvez bénéficier de l'offre Ultra Local !");
@@ -178,7 +183,7 @@
     </script>
 
     <script async defer 
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places,geometry&callback=initMap">
     </script>
 </body>
 </html>
