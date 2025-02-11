@@ -83,7 +83,7 @@
 
         function handleAddress(location) {
             map.setCenter(location);
-            new google.maps.Marker({
+            new google.maps.marker.AdvancedMarkerElement({
                 map: map,
                 position: location
             });
@@ -133,8 +133,9 @@
         }
     </script>
     
-    <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap">
+    <script 
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap"
+        async>
     </script>
 </body>
 </html>
