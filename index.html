@@ -169,19 +169,24 @@
 
     <script>
         // Définir les icônes avant leur utilisation
-        const windTurbineIcon = {
-            url: "https://www.gif-maniac.com/gifs/41/41390.gif", // Éolienne animée
-            scaledSize: new google.maps.Size(30, 30), // Taille de l'icône
-            origin: new google.maps.Point(0, 0),
-            anchor: new google.maps.Point(15, 15)
-        };
+        let windTurbineIcon, hydroIcon;
 
-        const hydroIcon = {
-            url: "https://cdn-icons-png.flaticon.com/512/2970/2970785.png", // Barrage hydroélectrique
-            scaledSize: new google.maps.Size(40, 40), // Taille de l'icône
-            origin: new google.maps.Point(0, 0),
-            anchor: new google.maps.Point(20, 20)
-        };
+        // Initialiser les icônes après le chargement de l'API Google Maps
+        function initIcons() {
+            windTurbineIcon = {
+                url: "https://www.gif-maniac.com/gifs/41/41390.gif", // Éolienne animée
+                scaledSize: new google.maps.Size(30, 30), // Taille de l'icône
+                origin: new google.maps.Point(0, 0),
+                anchor: new google.maps.Point(15, 15)
+            };
+
+            hydroIcon = {
+                url: "https://cdn-icons-png.flaticon.com/512/2970/2970785.png", // Barrage hydroélectrique
+                scaledSize: new google.maps.Size(40, 40), // Taille de l'icône
+                origin: new google.maps.Point(0, 0),
+                anchor: new google.maps.Point(20, 20)
+            };
+        }
 
         let map, autocomplete, bounds;
         let kmlLayers = [];
@@ -200,6 +205,10 @@
         function initMap() {
             console.log("✅ Initialisation de la carte...");
 
+            // Initialiser les icônes
+            initIcons();
+
+            // Initialiser les limites de la carte
             bounds = new google.maps.LatLngBounds();
 
             map = new google.maps.Map(document.getElementById('map'), {
@@ -362,10 +371,17 @@
                 legend.appendChild(legendItem);
             });
         }
-    </script>
 
-    <script async defer 
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap">
+        // Charger l'API Google Maps de manière asynchrone
+        function loadGoogleMapsAPI() {
+            const script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap';
+            script.async = true;
+            document.head.appendChild(script);
+        }
+
+        // Démarrer le chargement de l'API
+        loadGoogleMapsAPI();
     </script>
 </body>
 </html>
