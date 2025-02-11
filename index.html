@@ -97,31 +97,31 @@
         /* Légende */
         #legend {
             width: 90%;
-            margin: 20px auto;
-            padding: 15px;
+            margin: 10px auto;
+            padding: 10px;
             background-color: #fff;
             border-radius: 10px;
             box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 15px;
+            gap: 10px;
+            font-size: 0.9rem;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .legend-color {
-            width: 20px;
-            height: 20px;
+            width: 15px;
+            height: 15px;
             border-radius: 50%;
         }
 
         .legend-label {
-            font-size: 1rem;
             color: #333;
         }
 
@@ -141,8 +141,8 @@
 </head>
 <body>
     <header>
-        <h1>Carte des Zones Ultra Locales</h1>
-        <p>Visualisez les zones disponibles pour l'offre Ultra Locale</p>
+        <h1>Carte des Zones Énergétiques</h1>
+        <p>Visualisez les zones disponibles pour l'offre Ultra Local</p>
     </header>
 
     <div id="search-container">
@@ -167,16 +167,16 @@
     <script>
         let map, autocomplete, bounds;
         let kmlLayers = [];
-        let labels = [];
+        let polygons = [];
 
-        // Couleurs pour chaque zone
+        // Couleurs pastel pour les zones
         const zoneColors = [
-            "#FF5733", // Rouge
-            "#33FF57", // Vert
-            "#3357FF", // Bleu
-            "#FF33A1", // Rose
-            "#33FFF5", // Cyan
-            "#F5FF33"  // Jaune
+            "#A8E6CF", // Pastel vert
+            "#FFD3B6", // Pastel orange
+            "#FFAAA5", // Pastel rose
+            "#D4A5A5", // Pastel mauve
+            "#DCEDC1", // Pastel vert clair
+            "#FF8B94"  // Pastel rouge
         ];
 
         function initMap() {
@@ -214,29 +214,45 @@
             let loadCount = 0;
 
             kmlFiles.forEach((zone, index) => {
-                let kmlLayer = new google.maps.KmlLayer({
-                    url: zone.url,
-                    map: map,
-                    preserveViewport: true,
-                    suppressInfoWindows: true // Désactive les infobulles par défaut
-                });
+                fetch(zone.url)
+                    .then(response => response.text())
+                    .then(data => {
+                        let parser = new DOMParser();
+                        let kml = parser.parseFromString(data, "text/xml");
 
-                kmlLayers.push(kmlLayer);
+                        let coordinates = kml.getElementsByTagName("coordinates");
+                        if (coordinates.length === 0) return;
 
-                kmlLayer.addListener('status_changed', function () {
-                    console.log(`📂 Chargement du fichier KML : ${zone.name}, Statut: ${kmlLayer.getStatus()}`);
-                    if (kmlLayer.getStatus() === 'OK') {
-                        extractKmlCenter(zone.url, zone.name, zoneColors[index]);
-                    } else {
-                        console.error(`❌ Erreur de chargement du fichier KML : ${zone.name}`);
-                    }
+                        let coordsArray = coordinates[0].textContent.trim().split(/\s+/).map(coord => {
+                            let [lng, lat] = coord.split(",").map(Number);
+                            return { lat, lng };
+                        });
 
-                    loadCount++;
-                    if (loadCount === kmlFiles.length) {
-                        adjustMapView();
-                        generateLegend(kmlFiles, zoneColors);
-                    }
-                });
+                        // Créer un polygone pour la zone
+                        let polygon = new google.maps.Polygon({
+                            paths: coordsArray,
+                            strokeColor: zoneColors[index],
+                            strokeOpacity: 0.8,
+                            strokeWeight: 2,
+                            fillColor: zoneColors[index],
+                            fillOpacity: 0.35,
+                            map: map
+                        });
+
+                        polygons.push(polygon);
+
+                        // Ajuster les limites de la carte
+                        coordsArray.forEach(coord => bounds.extend(coord));
+
+                        loadCount++;
+                        if (loadCount === kmlFiles.length) {
+                            adjustMapView();
+                            generateLegend(kmlFiles, zoneColors);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`❌ Erreur de chargement du fichier KML : ${zone.name}`, error);
+                    });
             });
 
             // Recherche manuelle d'adresse
@@ -272,19 +288,16 @@
 
             let isInside = false;
 
-            kmlLayers.forEach(layer => {
-                layer.addListener('status_changed', function () {
-                    console.log("Statut du fichier KML :", layer.getStatus());
-                    if (layer.getStatus() !== 'OK') {
-                        console.error("Le fichier KML ne peut pas être chargé :", layer.getUrl());
-                    }
-                });
+            polygons.forEach(polygon => {
+                if (google.maps.geometry.poly.containsLocation(location, polygon)) {
+                    isInside = true;
+                }
             });
 
             if (isInside) {
-                showPopup("🎉 Bravo, vous pouvez bénéficier de l'offre Ultra Locale !");
+                showPopup("🎉 Bravo, vous pouvez bénéficier de l'offre Ultra Local !");
             } else {
-                showPopup("🎉 Bravo, vous pouvez bénéficier de l'offre Locale !");
+                showPopup("🎉 Bravo, vous pouvez bénéficier de l'offre Local !");
             }
         }
 
@@ -296,43 +309,6 @@
             setTimeout(() => {
                 popup.style.display = "none";
             }, 3000);
-        }
-
-        async function extractKmlCenter(kmlUrl, zoneName, color) {
-            try {
-                let response = await fetch(kmlUrl);
-                let text = await response.text();
-                let parser = new DOMParser();
-                let kml = parser.parseFromString(text, "text/xml");
-
-                let coordinates = kml.getElementsByTagName("coordinates");
-                if (coordinates.length === 0) return;
-
-                let coordsArray = coordinates[0].textContent.trim().split(/\s+/).map(coord => {
-                    let [lng, lat] = coord.split(",").map(Number);
-                    return { lat, lng };
-                });
-
-                let center = {
-                    lat: coordsArray.reduce((sum, p) => sum + p.lat, 0) / coordsArray.length,
-                    lng: coordsArray.reduce((sum, p) => sum + p.lng, 0) / coordsArray.length
-                };
-
-                new google.maps.Marker({
-                    position: center,
-                    map: map,
-                    icon: {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        fillColor: color,
-                        fillOpacity: 0.8,
-                        strokeWeight: 0,
-                        scale: 10
-                    }
-                });
-
-            } catch (error) {
-                console.error("Erreur lors de l'extraction des coordonnées du KML :", error);
-            }
         }
 
         function generateLegend(kmlFiles, colors) {
