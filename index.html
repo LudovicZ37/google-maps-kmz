@@ -55,7 +55,7 @@
                 handleAddress(place.geometry.location);
             });
 
-            // Liste des fichiers KML à charger
+            // Liste des fichiers KML
             var kmlFiles = [
                 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml',
                 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml',
@@ -66,8 +66,10 @@
             ];
 
             // Charger les fichiers KML et extraire les polygones
-            kmlFiles.forEach(function(url) {
-                loadKMLPolygons(url);
+            let promises = kmlFiles.map(url => loadKMLPolygons(url));
+
+            Promise.all(promises).then(() => {
+                console.log("✅ Tous les fichiers KML sont chargés.");
             });
 
             // Recherche manuelle d'adresse
@@ -92,22 +94,26 @@
                 position: location
             });
 
+            console.log("📍 Vérification de l'adresse :", location.lat(), location.lng());
+
             let isInside = false;
+
             polygons.forEach(polygon => {
                 if (google.maps.geometry.poly.containsLocation(location, polygon)) {
+                    console.log("✅ L'adresse est à l'intérieur d'un polygone.");
                     isInside = true;
                 }
             });
 
             if (isInside) {
-                window.alert("🎉 Bravo, vous pouvez bénéficier de l'offre Ultra Local !");
+                alert("🎉 Bravo, vous pouvez bénéficier de l'offre Ultra Local !");
             } else {
-                window.alert("🎉 Bravo, vous pouvez bénéficier de l'offre Local !");
+                alert("🎉 Bravo, vous pouvez bénéficier de l'offre Local !");
             }
         }
 
         function loadKMLPolygons(kmlUrl) {
-            fetch(kmlUrl)
+            return fetch(kmlUrl)
                 .then(response => response.text())
                 .then(kmlText => {
                     let parser = new DOMParser();
@@ -120,17 +126,22 @@
                             return { lat, lng };
                         });
 
-                        let polygon = new google.maps.Polygon({
-                            paths: coordsArray,
-                            map: map,
-                            strokeColor: "#FF0000",
-                            strokeOpacity: 0.8,
-                            strokeWeight: 2,
-                            fillColor: "#FF0000",
-                            fillOpacity: 0.35
-                        });
+                        if (coordsArray.length > 2) {
+                            let polygon = new google.maps.Polygon({
+                                paths: coordsArray,
+                                map: map,
+                                strokeColor: "#FF0000",
+                                strokeOpacity: 0.8,
+                                strokeWeight: 2,
+                                fillColor: "#FF0000",
+                                fillOpacity: 0.35
+                            });
 
-                        polygons.push(polygon);
+                            polygons.push(polygon);
+                            console.log("✅ Polygone ajouté :", polygon);
+                        } else {
+                            console.error("⚠️ Polygone ignoré, nombre de points insuffisant :", coordsArray);
+                        }
                     }
                 })
                 .catch(error => console.error("Erreur de chargement KML :", error));
