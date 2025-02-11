@@ -39,6 +39,15 @@
             display: none;
             z-index: 1000;
         }
+        .map-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            font-size: 1em;
+            font-weight: bold;
+            color: black;
+            white-space: nowrap;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -55,7 +64,7 @@
         let map, autocomplete;
         let bounds;
         let kmlLayers = [];
-        let labels = []; // Tableau des étiquettes
+        let labels = [];
 
         function initMap() {
             console.log("✅ Initialisation de la carte...");
@@ -99,7 +108,7 @@
                 { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "PARC DE LA VENERIE OUEST" }
             ];
 
-            // Charger les fichiers KML via Google Maps API
+            // Charger les fichiers KML et ajouter les étiquettes
             kmlFiles.forEach(zone => {
                 let kmlLayer = new google.maps.KmlLayer({
                     url: zone.url,
@@ -116,20 +125,28 @@
                     }
                 });
 
-                // Ajout d'une étiquette de texte
-                let label = new google.maps.InfoWindow({
-                    content: `<div style="font-weight: bold; color: black;">${zone.name}</div>`,
-                    position: { lat: 47.394144, lng: 0.68484 } // À adapter pour être au centre du KML
-                });
+                // Ajouter un label attaché au centre du KML
+                let labelDiv = document.createElement("div");
+                labelDiv.className = "map-label";
+                labelDiv.innerHTML = zone.name;
+                document.body.appendChild(labelDiv);
+
+                let label = {
+                    element: labelDiv,
+                    position: { lat: 47.394144, lng: 0.68484 } // À remplacer par le centre du KML
+                };
 
                 labels.push(label);
             });
 
-            // Ajuster le zoom après le chargement des KML
+            // Ajustement du zoom sur toutes les zones
             setTimeout(() => {
                 map.fitBounds(bounds);
-                labels.forEach(label => label.open(map));
+                updateLabels();
             }, 2000);
+
+            map.addListener("zoom_changed", updateLabels);
+            map.addListener("center_changed", updateLabels);
 
             // Recherche manuelle d'adresse
             document.getElementById('search-button').addEventListener('click', function() {
@@ -182,6 +199,16 @@
             setTimeout(() => {
                 popup.style.display = "none";
             }, 3000);
+        }
+
+        function updateLabels() {
+            labels.forEach(label => {
+                let projection = map.getProjection();
+                let position = projection.fromLatLngToPoint(new google.maps.LatLng(label.position));
+                label.element.style.left = position.x + "px";
+                label.element.style.top = position.y + "px";
+                label.element.style.fontSize = map.getZoom() / 2 + "px";
+            });
         }
     </script>
     
