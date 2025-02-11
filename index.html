@@ -172,15 +172,30 @@
         let kmlLayers = [];
         let polygons = [];
 
-        // Couleurs pastel pour les zones
+        // Couleurs du site Zephyr Énergies Locales
         const zoneColors = [
-            "#A8E6CF", // Pastel vert
-            "#FFD3B6", // Pastel orange
-            "#FFAAA5", // Pastel rose
-            "#D4A5A5", // Pastel mauve
-            "#DCEDC1", // Pastel vert clair
-            "#FF8B94"  // Pastel rouge
+            "#1E90FF", // Bleu vif
+            "#32CD32", // Vert vif
+            "#FF4500", // Orange vif
+            "#8A2BE2", // Violet
+            "#FFD700", // Or
+            "#00CED1"  // Turquoise
         ];
+
+        // Icônes personnalisées
+        const windTurbineIcon = {
+            url: "https://cdn-icons-png.flaticon.com/512/2970/2970785.png", // Éolienne
+            scaledSize: new google.maps.Size(30, 30), // Taille de l'icône
+            origin: new google.maps.Point(0, 0),
+            anchor: new google.maps.Point(15, 15)
+        };
+
+        const hydroIcon = {
+            url: "https://cdn-icons-png.flaticon.com/512/2970/2970785.png", // Barrage hydroélectrique
+            scaledSize: new google.maps.Size(40, 40), // Taille de l'icône
+            origin: new google.maps.Point(0, 0),
+            anchor: new google.maps.Point(20, 20)
+        };
 
         function initMap() {
             console.log("✅ Initialisation de la carte...");
@@ -206,12 +221,12 @@
 
             // Liste des fichiers KML avec leur nom
             let kmlFiles = [
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml', name: "PARC DU MOULIN DE PIERRE" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml', name: "PARC DE BONNEVAL" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra%20Local.kml', name: "PARC DE LA RENARDIERE" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml', name: "PARC DE LA HAUTE CHEVRE" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml', name: "CENTRALE HYDRO ANTOIGNE" },
-                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "PARC DE LA VENERIE OUEST" }
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/MP%20Ultra%20Local.kml', name: "PARC DU MOULIN DE PIERRE", type: "wind" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/BO%20Ultra%20Local.kml', name: "PARC DE BONNEVAL", type: "wind" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/RENA%20Ultra%20Local.kml', name: "PARC DE LA RENARDIERE", type: "wind" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/HC%20Ultra%20Local.kml', name: "PARC DE LA HAUTE CHEVRE", type: "wind" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/SJ%20Ultra%20Local.kml', name: "CENTRALE HYDRO ANTOIGNE", type: "hydro" },
+                { url: 'https://raw.githubusercontent.com/LudovicZ37/google-maps-kmz/main/VO%20Ultra%20Local.kml', name: "PARC DE LA VENERIE OUEST", type: "wind" }
             ];
 
             let loadCount = 0;
@@ -243,6 +258,20 @@
                         });
 
                         polygons.push(polygon);
+
+                        // Calculer le centre de la zone
+                        let center = {
+                            lat: coordsArray.reduce((sum, p) => sum + p.lat, 0) / coordsArray.length,
+                            lng: coordsArray.reduce((sum, p) => sum + p.lng, 0) / coordsArray.length
+                        };
+
+                        // Ajouter un marqueur avec une icône personnalisée
+                        let icon = zone.type === "hydro" ? hydroIcon : windTurbineIcon;
+                        new google.maps.Marker({
+                            position: center,
+                            map: map,
+                            icon: icon
+                        });
 
                         // Ajuster les limites de la carte
                         coordsArray.forEach(coord => bounds.extend(coord));
