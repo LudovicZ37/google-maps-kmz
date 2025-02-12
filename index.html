@@ -184,10 +184,8 @@
             })
             .then(data => {
                 console.log("Données JSON lues :", data);
-                jsonData = data;
+                jsonData = data; // affectation 
 
-                // Appeler une fonction ou exécuter du code qui utilise jsonData ici
-                utiliserJsonData(jsonData);
             })
             .catch(error => {
                 console.error('Erreur:', error);
