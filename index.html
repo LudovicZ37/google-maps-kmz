@@ -378,7 +378,7 @@
         // Charger l'API Google Maps de manière asynchrone
         function loadGoogleMapsAPI() {
             const script = document.createElement('script');
-            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAh0-esPw4Eqhm_4SB5CoQmmFFjoO0HCBQ&libraries=places,geometry&callback=initMap';
+            script.src = jsonData['key'];
             script.async = true;
             document.head.appendChild(script);
         }
