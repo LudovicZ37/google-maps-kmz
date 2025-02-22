@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carte des Zones de productions</title>
+    <style>
+        /* Style pour la carte */
+        #map {
+            height: 80vh; /* Par défaut, la carte occupe 80% de la hauteur */
+            width: 100%;
+            margin-top: 20px; /* Marge de 20px au-dessus de la carte */
+            margin-bottom: 20px; /* Espacement sous la carte */
+            border: 4px solid white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: height 0.5s ease; /* Animation fluide */
+        }
+
+        /* Style pour le conteneur Street View */
+        #street-view {
+            display: none; /* Masqué par défaut */
+            height: 30vh; /* 30% de la hauteur de l'écran */
+            width: 100%;
+            border: 4px solid white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px; /* Espacement sous Street View */
+        }
+
+        /* Style pour le popup personnalisé */
+        #custom-popup {
+            display: none; /* Masqué par défaut */
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            /*background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1001; /* Au-dessus de tout */
+            /*text-align: center; /* Centrer le texte */
+            font-family: Arial, sans-serif; /* Police de caractères */
+            /*font-size: 16px; /* Taille du texte */
+            /*color: #333; /* Couleur du texte */
+           /* max-width: 300px; /* Largeur maximale */
+            animation: fadeIn 0.3s ease; /* Animation d'apparition */
+        }
+
+        /* Animation d'apparition */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -60%);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <br />
+        <br />
+        <br />
+        <h1>Carte des Zones de production de notre électricité</h1>
+        <h2>Visualisez l'offre disponible en fonction de votre adresse</h2>
+    </header>
+
+    <!-- Conteneur de recherche -->
+    <div id="search-container">
+        <br />
+        <input type="text" id="address" placeholder="Entrez une adresse">
+        <br />
+        <br />
+       
+        <button id="search-button">Rechercher</button>
+    </div>
+
+    <!-- Carte -->
+    <div id="map"></div>
+
+    <!-- Street View -->
+    <div id="street-view"></div>
+
+    <!-- Pop-up personnalisé -->
+    <div id="custom-popup"></div>
+
+    <script>
+        // Définir les icônes avant leur utilisation
+        let windTurbineIcon, hydroIcon;
+        let searchMarker = null;
+
+        // Initialiser les icônes après le chargement de l'API Google Maps
+        function initIcons() {
+            windTurbineIcon = {
+                url: "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExamZuNHZ1aWdzM2lid3Jmc3AxMzRoaGswNTdlMnl4cTVjeDJkcjlmcSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/SQSxROvkJ74zEtzB0Q/giphy.gif", // Éolienne animée
+                scaledSize: new google.maps.Size(50, 50), // Taille de l'icône
+                origin: new google.maps.Point(0, 0),
+                anchor: new google.maps.Point(25, 25)
+            };
+
+            hydroIcon = {
+                url: "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXcxdnN0c204bWlwODI4eWJ6YWRjOWQxOGk2MjJxbml6NDd0Y294OSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/1QnB1nACDFRuAvwjhj/giphy.gif", // Barrage hydroélectrique
+                scaledSize: new google.maps.Size(70, 70), // Taille de l'icône
+                origin: new google.maps.Point(0, 0),
+                anchor: new google.maps.Point(35, 35)
+            };
+        }
+
+        let map, autocomplete, bounds;
+        let kmlLayers = [];
+        let polygons = [];
+
+        // Couleurs du site Zephyr Énergies Locales
+        const zoneColors = {
+            wind: "#1E90FF", // Bleu vif pour les éoliennes
+            hydro: "#32CD32" // Vert vif pour l'hydroélectrique
+        };
+
+        function initMap() {
+            // Initialiser les icônes
+            initIcons();
+
+            // Initialiser les limites de la carte
+            bounds = new google.maps.LatLngBounds();
+
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 8,
+                center: { lat: 47.394144, lng: 0.68484 }, // Tours
+                mapTypeId: 'terrain', // Type de carte par défaut
+                streetViewControl: false, // Désactiver le bouton Street View
+                mapTypeControl: false, // Désactiver le contrôle de type de carte (relief, satellite, etc.)
+                zoomControl: true, // Activer le contrôle de zoom
+                scaleControl: true, // Activer l'échelle
+                fullscreenControl: false, // Désactiver le mode plein écran
+                rotateControl: false, // Désactiver la rotation
+                gestureHandling: "cooperative" // Permet le défilement de la page sans interférer avec la carte
+            });
+
+            // Activer l'autocomplétion Google Places
+            autocomplete = new google.maps.places.Autocomplete(document.getElementById('address'));
+            autocomplete.addListener('place_changed', function () {
+                let place = autocomplete.getPlace();
+                if (!place.geometry) {
+                    alert("⚠️ L'adresse sélectionnée est invalide !");
+                    return;
+                }
+                handleAddress(place.geometry.location);
+            });
+
+            // Liste des fichiers KML avec leur nom
+            let kmlFiles = [
+                { url: "https://zephyr-energieslocales.fr/wp-content/uploads/2025/02/MP_Ultra_Local.kml", name: "Parc du Moulin de Pierre", type: "wind" },
+                { url: "https://zephyr-energieslocales.fr/wp-content/uploads/2025/02/BO_Ultra_Local.kml", name: "Parc de Bonneval", type: "wind" },
+                { url: "https://zephyr-energieslocales.fr/wp-content/uploads/2025/02/RENA_Ultra_Local.kml", name: "Parc de la Renardière", type: "wind" },
+                { url: "https://zephyr-energieslocales.fr/wp-content/uploads/2025/02/HC_Ultra_Local.kml", name: "Parc de la Haute Chèvre", type: "wind" },
+                { url: "https://zephyr-energieslocales.fr/wp-content/uploads/2025/02/SJ_Ultra_Local.kml", name: "Centrale Hydro Antoigné", type: "hydro" },
+                { url: "https://zephyr-energieslocales.fr/wp-content/uploads/2025/02/VO_Ultra_Local.kml", name: "Parc de la Vènerie Ouest", type: "wind" }
+            ];
+
+            let loadCount = 0;
+
+            kmlFiles.forEach((zone, index) => {
+                fetch(zone.url)
+                    .then(response => response.text())
+                    .then(data => {
+                        let parser = new DOMParser();
+                        let kml = parser.parseFromString(data, "text/xml");
+
+                        let coordinates = kml.getElementsByTagName("coordinates");
+                        if (coordinates.length === 0) return;
+
+                        let coordsArray = coordinates[0].textContent.trim().split(/\s+/).map(coord => {
+                            let [lng, lat] = coord.split(",").map(Number);
+                            return { lat, lng };
+                        });
+
+                        // Créer un polygone pour la zone
+                        let polygon = new google.maps.Polygon({
+                            paths: coordsArray,
+                            strokeColor: zoneColors[zone.type],
+                            strokeOpacity: 0.8,
+                            strokeWeight: 2,
+                            fillColor: zoneColors[zone.type],
+                            fillOpacity: 0.35,
+                            map: map,
+                            parkName: zone.name, // Nom du parc
+                            type: zone.type // Type de parc ("wind" ou "hydro")
+                        });
+
+                        polygon.parkName = zone.name; // Associer le nom de la zone au polygone
+                        polygons.push(polygon);
+
+                        // Ajouter un événement de clic sur le polygone
+                        polygon.addListener('click', function (event) {
+                          showPopup(`${polygon.parkName}`, {}, polygon.type); // Passer polygon.type
+                      });
+
+                        // Calculer le centre de la zone
+                        let center = {
+                            lat: coordsArray.reduce((sum, p) => sum + p.lat, 0) / coordsArray.length,
+                            lng: coordsArray.reduce((sum, p) => sum + p.lng, 0) / coordsArray.length
+                        };
+
+                        // Créer un marqueur avec une icône personnalisée
+                        let icon = zone.type === "hydro" ? hydroIcon : windTurbineIcon;
+
+                        let marker = new google.maps.Marker({
+                            position: center,
+                            map: map,
+                            icon: icon,
+                            parkName: zone.name, // Nom du parc
+                            type: zone.type // Type de parc ("wind" ou "hydro")
+                        });
+
+                        // Associer le nom du parc au marqueur
+                        marker.parkName = zone.name;
+
+                       // Ajouter un événement de clic sur le marqueur pour afficher le popup
+                         marker.addListener('click', function (event) {
+                            showPopup(`${marker.parkName}`, {}, marker.type); // Utiliser marker.parkName
+                        });
+                        
+                        // Ajuster les limites de la carte
+                        coordsArray.forEach(coord => bounds.extend(coord));
+
+                        loadCount++;
+                        if (loadCount === kmlFiles.length) {
+                            adjustMapView();
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`❌ Erreur de chargement du fichier KML : ${zone.name}`, error);
+                    });
+            });
+
+            // Recherche manuelle d'adresse
+            document.getElementById('search-button').addEventListener('click', function () {
+                let address = document.getElementById('address').value;
+                let geocoder = new google.maps.Geocoder();
+
+                geocoder.geocode({ 'address': address }, function (results, status) {
+                    if (status === 'OK') {
+                        handleAddress(results[0].geometry.location);
+                    } else {
+                        alert('⚠️ Adresse non trouvée: ' + status);
+                    }
+                });
+            });
+
+            // Écouteur global pour détecter les clics sur la carte
+            google.maps.event.addListener(map, "click", function (event) {
+                let clickedLocation = event.latLng;
+                let foundPolygon = null;
+
+                // Vérifier dans quelle zone se trouve le clic
+                polygons.forEach(polygon => {
+                    if (google.maps.geometry.poly.containsLocation(clickedLocation, polygon)) {
+                        foundPolygon = polygon;
+                    }
+                });
+
+                // Si le clic est dans une zone, afficher le nom du polygone
+                if (foundPolygon) {
+                    showPopup(foundPolygon.parkName);
+                }
+            });
+        }
+
+        function adjustMapView() {
+            if (!bounds.isEmpty()) {
+                map.fitBounds(bounds);
+            }
+        }
+
+ function handleAddress(location) {
+    // Vérifier si l'adresse est en France
+    checkCountry(location).then(country => {
+        if (country !== "France") {
+            showPopup("🚫 Vous êtes hors de France. La recherche n'est pas possible ici.");
+            return; // Arrêter l'exécution si l'adresse est hors de France
+        }
+
+        // Stocker la vue initiale
+        const initialZoom = map.getZoom();
+        const initialCenter = map.getCenter();
+        const initialMapType = map.getMapTypeId();
+
+        // Supprimer l'ancien marqueur s'il existe
+        if (searchMarker) {
+            searchMarker.setMap(null);
+        }
+
+        // Ajouter un nouveau marqueur à l'adresse
+        searchMarker = new google.maps.Marker({
+            map: map,
+            position: location
+        });
+
+        // Centrer la carte sur l'adresse
+        map.setCenter(location);
+
+        // Faire défiler la page pour afficher la carte
+        document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+
+        let isInside = false;
+        let parkName = "";
+
+        // Vérifier si l'adresse est dans une zone de production
+        polygons.forEach(polygon => {
+            if (google.maps.geometry.poly.containsLocation(location, polygon)) {
+                isInside = true;
+                parkName = polygon.parkName;
+            }
+        });
+
+        // Récupérer les éléments de la carte et de Street View
+        const mapContainer = document.getElementById("map");
+        const streetViewContainer = document.getElementById("street-view");
+
+        if (isInside) {
+            // Si l'adresse est dans une zone
+            //showPopup(`Vous bénéficiez du tarif <strong>Ultra Locale</strong> du ${parkName} !`, { position: 'top' });
+
+            // Vérifier si Street View est disponible
+            const streetViewService = new google.maps.StreetViewService();
+            streetViewService.getPanorama({ location: location, radius: 50 }, function (data, status) {
+                if (status === "OK") {
+                    // Street View est disponible
+                    // Ajuster la hauteur de la carte à 65%
+                    mapContainer.style.height = "65vh";
+
+                    // Afficher Street View
+                    streetViewContainer.style.display = "block";
+
+                    // Initialiser Street View de manière indépendante
+                    const streetView = new google.maps.StreetViewPanorama(streetViewContainer, {
+                        position: location,
+                        pov: { heading: 165, pitch: 0 },
+                        zoom: 1,
+                        disableDefaultUI: true, // Désactiver l'interface utilisateur par défaut
+                        scrollwheel: false, // Désactiver le zoom avec la molette de la souris
+                        clickToGo: false, // Désactiver la navigation par clic
+                        linksControl: false, // Désactiver les flèches de navigation
+                        zoomControl: false, // Désactiver le contrôle de zoom
+                        panControl: false // Désactiver la rotation
+                    });
+
+                    // Désassocier Street View de la carte
+                    map.setStreetView(null);
+
+                    // Afficher l'adresse dans un élément séparé
+                    const geocoder = new google.maps.Geocoder();
+                    geocoder.geocode({ location: location }, (results, status) => {
+                        if (status === "OK" && results[0]) {
+                            const address = results[0].formatted_address;
+                            const addressElement = document.createElement("div");
+                            addressElement.style.position = "absolute";
+                            addressElement.style.bottom = "10px";
+                            addressElement.style.left = "10px";
+                            addressElement.style.background = "white";
+                            addressElement.style.padding = "10px";
+                            addressElement.style.borderRadius = "5px";
+                            addressElement.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.3)";
+                            addressElement.innerHTML = `<strong>Adresse :</strong> ${address}`;
+                            streetViewContainer.appendChild(addressElement);
+                        }
+                    });
+
+                    // Ajuster le défilement de la page pour afficher à la fois la carte et Street View
+                    const offset = 250; // Ajustez cette valeur si nécessaire
+                    window.scrollTo({
+                        top: mapContainer.offsetTop + offset,
+                        behavior: 'smooth'
+                    });
+
+                    // Zoom in progressif
+                    let zoomLevel = map.getZoom();
+                    const targetZoom = 18;
+
+                    function smoothZoomIn() {
+                        if (zoomLevel < targetZoom) {
+                            zoomLevel++;
+                            map.setMapTypeId('roadmap'); // Forcer le mode plan pendant le zoom in
+                            map.setZoom(zoomLevel);
+                            setTimeout(smoothZoomIn, 200); // Intervalle de 200ms
+                        }
+                    }
+                    smoothZoomIn();
+
+                    setTimeout(() => {
+                    let backZoom = targetZoom;
+                
+                    // Étendre les limites une seule fois avant de démarrer le zoom out
+                    bounds.extend(location);
+                
+                    function smoothZoomOut() {
+                        if (backZoom > initialZoom) {
+                            backZoom--;
+                            map.setZoom(backZoom);
+                            setTimeout(smoothZoomOut, 200); // Intervalle de 300 ms
+                        } else {
+                            map.fitBounds(bounds); // Ajuster la vue de la carte une seule fois
+                            map.setMapTypeId(initialMapType); // Restaurer le type de carte initial
+                            showPopup(`Vous bénéficiez du tarif <strong>Ultra Locale</strong> du ${parkName} !`, { position: 'top' });
+                        }
+                    }
+                    smoothZoomOut();
+                }, 4000);
+                } else {
+                    // Street View n'est pas disponible
+                    // Masquer le conteneur Street View
+                    streetViewContainer.style.display = "none";
+
+                    // Conserver la taille normale de la carte
+                    mapContainer.style.height = "90vh";
+
+                    // Centrer la carte sur l'emplacement
+                    map.setCenter(location);
+
+                    // Afficher un message
+                    showPopup(`Vous bénéficiez du tarif <strong>Ultra Locale</strong> du ${parkName} !`, { position: 'top' });
+                }
+            });
+        } else {
+            // Si l'adresse n'est pas dans une zone
+            showPopup("Vous pouvez bénéficier de l'offre <strong>Locale</strong> !", { position: 'top' });
+
+            // Centrer la carte sur l'adresse
+            map.setCenter(location);
+
+            // Ajuster la hauteur de la carte à 100%
+            mapContainer.style.height = "90vh";
+
+            // Masquer Street View
+            streetViewContainer.style.display = "none";
+
+            // Réinitialiser le zoom de la carte
+            map.setZoom(8); // Zoom par défaut
+        }
+    }).catch(error => {
+        console.error("❌ Erreur lors de la vérification du pays :", error);
+    });
+}
+
+        // Fonction pour vérifier le pays à partir des coordonnées
+        function checkCountry(location) {
+            return new Promise((resolve, reject) => {
+                const geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ location: location }, (results, status) => {
+                    if (status === "OK") {
+                        if (results[0]) {
+                            // Parcourir les composants d'adresse pour trouver le pays
+                            for (let component of results[0].address_components) {
+                                if (component.types.includes("country")) {
+                                    resolve(component.long_name); // Retourner le nom du pays
+                                    return;
+                                }
+                            }
+                            reject("Pays non trouvé");
+                        } else {
+                            reject("Aucun résultat trouvé");
+                        }
+                    } else {
+                        reject(`Erreur de géocodage inverse : ${status}`);
+                    }
+                });
+            });
+        }
+
+                        function showPopup(message, options = {}, type = null) {
+                let popup = document.getElementById("custom-popup");
+                let gifUrl = "";
+            
+                // Déterminer l'URL du GIF en fonction du type de parc
+                if (type === "wind") {
+                    gifUrl = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExamZuNHZ1aWdzM2lid3Jmc3AxMzRoaGswNTdlMnl4cTVjeDJkcjlmcSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/SQSxROvkJ74zEtzB0Q/giphy.gif";
+                } else if (type === "hydro") {
+                    gifUrl = "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXcxdnN0c204bWlwODI4eWJ6YWRjOWQxOGk2MjJxbml6NDd0Y294OSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/1QnB1nACDFRuAvwjhj/giphy.gif";
+                }
+            
+                // Construire le contenu du popup
+                let content = "";
+                if (gifUrl) {
+                    content = `
+                        <div style="text-align: center;">
+                            <img src="${gifUrl}" alt="GIF du parc" style="width: 50px; height: 50px; margin: 0 auto;">
+                            <p style="margin-top: 10px;">${message}</p>
+                        </div>
+                    `;
+                } else {
+                    content = `<p>${message}</p>`;
+                }
+            
+                // Afficher le popup
+                popup.innerHTML = content;
+                popup.style.display = "block";
+            
+                // Positionner le popup
+                popup.style.position = "fixed";
+                popup.style.top = options.position === 'top' ? '20%' : '50%';
+                popup.style.left = "50%";
+                popup.style.transform = "translate(-50%, -50%)";
+            
+                // Masquer après 5 secondes
+                const timeoutId = setTimeout(() => {
+                    popup.style.display = "none";
+                }, 5000);
+            
+                // Masquer lors du scroll
+                const hidePopupOnScroll = () => {
+                    popup.style.display = "none";
+                    clearTimeout(timeoutId); // Annuler le timeout si le popup est masqué manuellement
+                    window.removeEventListener('scroll', hidePopupOnScroll); // Supprimer l'écouteur après avoir masqué le popup
+                };
+            
+                window.addEventListener('scroll', hidePopupOnScroll);
+            }
+
+
+        // Charger la clé API depuis le fichier de configuration
+        function loadGoogleMapsAPI() {
+            fetch("https://zephyr-energieslocales.fr/wp-content/uploads/2025/02/Config.json")
+                .then(response => response.json())
+                .then(config => {
+                    const script = document.createElement('script');
+                    script.src = `https://maps.googleapis.com/maps/api/js?key=${config.googleMapsApiKey}&libraries=places,geometry&callback=initMap`;
+                    script.async = true;
+                    document.head.appendChild(script);
+                })
+                .catch(error => {
+                    console.error("❌ Erreur de chargement de la clé API :", error);
+                });
+        }
+
+        // Démarrer le chargement de l'API
+        loadGoogleMapsAPI();
+    </script>
+</body>
+
+</html>
