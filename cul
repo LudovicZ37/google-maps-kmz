@@ -62,9 +62,9 @@
 </head>
 <body>
   <header>
-    <br /><br /><br />
-    <h1>Carte des Zones de production de notre électricité</h1>
-    <h2>Visualisez l'offre disponible en fonction de votre adresse</h2>
+    <br /><br />
+    <h2>Carte des Zones de production de notre électricité</h2>
+    <p>Visualisez l'offre disponible selon votre adresse</p>
   </header>
 
   <!-- Conteneur de recherche -->
@@ -107,6 +107,7 @@
 
     let map, autocomplete, bounds;
     let polygons = [];
+    let parks = {}; // Stockage des polygones par nom
 
     // Couleurs du site Zephyr Énergies Locales
     const zoneColors = {
@@ -118,14 +119,23 @@
       initIcons();
       bounds = new google.maps.LatLngBounds();
 
+      // Vérifier si un parc est spécifié dans l'URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const parkParam = urlParams.get('parc');
+
+      // Centrer la carte sur Tours par défaut
+      let initialCenter = { lat: 47.394144, lng: 0.68484 };
+      let initialZoom = 8;
+
+      // Initialiser la carte
       map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 8,
-        center: { lat: 47.394144, lng: 0.68484 },
-        mapTypeId: 'terrain',
+        zoom: initialZoom,
+        center: initialCenter, // Centre initial (Tours)
+        mapTypeId: 'roadmap',
         streetViewControl: false,
         mapTypeControl: false,
         zoomControl: true,
-        scaleControl: true,
+        scaleControl: false,
         fullscreenControl: false,
         rotateControl: false,
         gestureHandling: "cooperative"
@@ -180,7 +190,7 @@
             });
 
             polygon.addListener('click', function () {
-              showPopup(`${polygon.parkName}`, { hideOnScroll: true, position: 'center' }, polygon.type);
+              showPopup(`${polygon.parkName}`, { hideOnScroll: true, position: 'top' }, polygon.type);
             });
 
             polygons.push(polygon);
@@ -199,15 +209,51 @@
               type: zone.type
             });
 
+            parks[zone.name] = {
+              polygon: polygon,
+              marker: marker,
+              parkName: zone.name, // Ajoutez le nom du parc
+              type: zone.type      // Ajoutez le type de parc
+            };
+
             marker.addListener('click', function () {
-              showPopup(`${marker.parkName}`, { hideOnScroll: true, position: 'center' }, marker.type);
+              showPopup(`${marker.parkName}`, { hideOnScroll: true, position: 'top' }, marker.type);
             });
 
             coordsArray.forEach(coord => bounds.extend(coord));
 
             loadCount++;
             if (loadCount === kmlFiles.length) {
+              // Si un parc est spécifié dans l'URL, zoomer directement sur ce parc
+            if (parkParam) {
+              const park = parks[parkParam];
+              if (park) {
+                const bounds = new google.maps.LatLngBounds();
+                park.polygon.getPath().forEach(latLng => bounds.extend(latLng));
+                map.fitBounds(bounds); // Zoom sur le parc
+                map.panTo(bounds.getCenter()); // Centrer la carte sur le parc
+            
+                // Attendre que la carte soit prête avant d'afficher le popup
+                google.maps.event.addListenerOnce(map, 'idle', () => {
+                  if (park.parkName && park.type) {
+                    let welcomeMessage = "";
+                    if (park.type === "wind") {
+                      welcomeMessage = `Bienvenue au <strong>${park.parkName}</strong>`; // Masculin
+                    } else if (park.type === "hydro") {
+                      welcomeMessage = `Bienvenue à la <strong>${park.parkName}</strong>`; // Féminin
+                    }
+                    showPopup(welcomeMessage, {}, park.type); // Afficher le popup avec le message personnalisé
+                  } else {
+                    console.error("Informations du parc manquantes :", park);
+                  }
+                });
+              } else {
+                console.error("Parc non trouvé :", parkParam);
+              }
+            } else {
+              // Sinon, ajuster la vue sur toutes les zones avec un zoom optimal
               adjustMapView();
+            }
             }
           })
           .catch(error => {
@@ -243,7 +289,17 @@
 
     function adjustMapView() {
       if (!bounds.isEmpty()) {
+        // Ajuster la vue pour inclure toutes les zones
         map.fitBounds(bounds);
+    
+        // Ajouter un léger délai pour permettre à la carte de s'adapter
+        setTimeout(() => {
+          // Ajuster manuellement le zoom si nécessaire
+          const currentZoom = map.getZoom();
+          if (currentZoom > 10) { // Ajustez cette valeur selon vos besoins
+            map.setZoom(10); // Zoom optimal pour la vue générale
+          }
+        }, 500); // Délai de 500 ms
       }
     }
 
@@ -323,10 +379,10 @@
                   panControl: false
                 });
                 map.setStreetView(streetViewPanorama);
-                
+
                 // Vider le conteneur pour éviter l'accumulation d'éléments
                 streetViewContainer.innerHTML = "";
-                
+
                 // Afficher l'adresse exacte dans le panorama
                 const geocoder = new google.maps.Geocoder();
                 geocoder.geocode({ location: location }, (results, status) => {
@@ -344,7 +400,7 @@
                     streetViewContainer.appendChild(addressElement);
                   }
                 });
-                
+
                 // Scroll vers la carte
                 const offset = 250;
                 window.scrollTo({ top: mapContainer.offsetTop + offset, behavior: 'smooth' });
@@ -406,13 +462,13 @@
     function showPopup(message, options = {}, type = null) {
       let popup = document.getElementById("custom-popup");
       let gifUrl = "";
-      
+
       if (type === "wind") {
         gifUrl = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExamZuNHZ1aWdzM2lid3Jmc3AxMzRoaGswNTdlMnl4cTVjeDJkcjlmcSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/SQSxROvkJ74zEtzB0Q/giphy.gif";
       } else if (type === "hydro") {
         gifUrl = "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXcxdnN0c204bWlwODI4eWJ6YWRjOWQxOGk2MjJxbml6NDd0Y294OSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/1QnB1nACDFRuAvwjhj/giphy.gif";
       }
-      
+
       let content = "";
       if (gifUrl) {
         content = `
@@ -424,21 +480,20 @@
       } else {
         content = `<p>${message}</p>`;
       }
-      
+
       popup.innerHTML = content;
       popup.style.display = "block";
       popup.style.position = "fixed";
-      // Si l'option position est 'top', on positionne à 30 % du haut, sinon au centre (50%)
       popup.style.top = options.position === 'top' ? '30%' : '50%';
       popup.style.left = "50%";
       popup.style.transform = "translate(-50%, -50%)";
-      
+
       const timeoutId = setTimeout(() => {
         popup.style.display = "none";
       }, 5000);
-      
+
       const hideOnScroll = options.hideOnScroll !== undefined ? options.hideOnScroll : false;
-      
+
       if (hideOnScroll) {
         const hidePopupOnScroll = () => {
           popup.style.display = "none";
