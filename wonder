@@ -1,0 +1,185 @@
+import requests
+import base64
+import pandas as pd
+from datetime import datetime, timedelta
+import time
+import matplotlib.pyplot as plt
+
+class WonderDataCollector:
+    def __init__(self, username, password):
+        self.base_url = "https://wonderv3.com"
+        self.session_id = self._authenticate(username, password)
+        self.headers = {"x-wv3-session-id": self.session_id, "Content-Type": "application/json"}
+        self.df = pd.DataFrame()
+
+    def _authenticate(self, username, password):
+        """Authentification et récupération du session ID"""
+        try:
+            auth_url = f"{self.base_url}/gobl/_login"
+            password_b64 = base64.b64encode(password.encode()).decode()
+            
+            response = requests.post(
+                auth_url,
+                headers={"x-wv3-session-id": "none"},
+                json={"Username": username, "PasswordBase64": password_b64}
+            )
+            
+            response.raise_for_status()
+            return response.headers["x-wv3-session-id"]
+            
+        except Exception as e:
+            print(f"Erreur d'authentification : {str(e)}")
+            raise
+
+    def _get_all_metrics(self, unit_id):
+        """Récupère toutes les métriques disponibles pour une turbine"""
+        metrics_url = f"{self.base_url}/gobl/realtime/rest/recent"
+        
+        try:
+            response = requests.post(
+                metrics_url,
+                headers=self.headers,
+                json={"UnitIds": [unit_id]}
+            )
+            response.raise_for_status()
+            
+            data = response.json()[0]  # Prend le premier élément du tableau
+            data["timestamp"] = datetime.now().isoformat()
+            
+            return data
+            
+        except Exception as e:
+            print(f"Erreur de récupération des données : {str(e)}")
+            return None
+
+    def collect_to_dataframe(self, unit_id, duration_hours=24, interval_min=10):
+        """
+        Collecte les données sur une période avec un intervalle régulier
+        Args:
+            unit_id: ID de la turbine
+            duration_hours: Durée totale de collecte
+            interval_min: Intervalle entre les mesures (minutes)
+        """
+        end_time = datetime.now() + timedelta(hours=duration_hours)
+        
+        while datetime.now() < end_time:
+            metrics = self._get_all_metrics(unit_id)
+            
+            if metrics:
+                # Conversion en DataFrame et ajout aux données existantes
+                new_row = pd.DataFrame([metrics])
+                self.df = pd.concat([self.df, new_row], ignore_index=True)
+                
+                # Sauvegarde temporaire
+                self.save_to_csv("turbine_data.csv")
+                
+            # Attente jusqu'à la prochaine collecte
+            time.sleep(interval_min * 60)
+
+    def get_historical_data(self, unit_id, start_date, end_date):
+        """Récupère les données historiques et les ajoute au DataFrame"""
+        hist_url = f"{self.base_url}/gobl/base/rest/status/alarmlog"
+        
+        params = {
+            "UnitIds": [unit_id],
+            "From": self._date_to_microseconds(start_date),
+            "Until": self._date_to_microseconds(end_date),
+            "IncludeComponents": True
+        }
+        
+        try:
+            response = requests.post(hist_url, headers=self.headers, json=params)
+            response.raise_for_status()
+            
+            historical_data = pd.DataFrame(response.json())
+            self.df = pd.concat([self.df, historical_data], ignore_index=True)
+            
+        except Exception as e:
+            print(f"Erreur historique : {str(e)}")
+
+    def save_to_csv(self, filename):
+        """Sauvegarde le DataFrame en CSV"""
+        self.df.to_csv(filename, index=False)
+        print(f"Données sauvegardées dans {filename}")
+
+    def save_to_excel(self, filename):
+        """Sauvegarde le DataFrame en Excel"""
+        self.df.to_excel(filename, index=False)
+        print(f"Données sauvegardées dans {filename}")
+
+    def plot_standard_graphs(self):
+        """Génère des graphiques standards à partir des données"""
+        if self.df.empty:
+            print("Aucune donnée à visualiser")
+            return
+            
+        plt.figure(figsize=(15,10))
+        
+        # Graphique de production
+        plt.subplot(2,2,1)
+        plt.plot(pd.to_datetime(self.df['timestamp']), self.df['ActivePower'], 'b-')
+        plt.title('Production électrique (kW)')
+        plt.xlabel('Temps')
+        plt.ylabel('kW')
+        
+        # Graphique de vitesse du vent
+        plt.subplot(2,2,2)
+        plt.plot(pd.to_datetime(self.df['timestamp']), self.df['WindSpeed'], 'g-')
+        plt.title('Vitesse du vent (m/s)')
+        plt.xlabel('Temps')
+        plt.ylabel('m/s')
+        
+        # Graphique de température
+        plt.subplot(2,2,3)
+        plt.plot(pd.to_datetime(self.df['timestamp']), self.df['GeneratorTemperature'], 'r-')
+        plt.title('Température générateur (°C)')
+        plt.xlabel('Temps')
+        plt.ylabel('°C')
+        
+        # Graphique d'orientation
+        plt.subplot(2,2,4)
+        plt.scatter(self.df['WindDirection'], self.df['NacellePosition'], c=self.df['ActivePower'])
+        plt.title('Orientation nacelle vs direction vent')
+        plt.xlabel('Direction vent (°)')
+        plt.ylabel('Position nacelle (°)')
+        plt.colorbar(label='Puissance (kW)')
+        
+        plt.tight_layout()
+        plt.show()
+
+    @staticmethod
+    def _date_to_microseconds(dt):
+        """Convertit une date en timestamp microsecondes"""
+        return int(dt.timestamp() * 1e6)
+
+# Exemple d'utilisation
+if __name__ == "__main__":
+    # Configuration
+    USER = "votre_utilisateur"
+    PASS = "votre_mdp"
+    TURBINE_ID = 12345
+    
+    # Initialisation
+    collector = WonderDataCollector(USER, PASS)
+    
+    # Collecte de données en temps réel pendant 1 heure
+    print("Début de la collecte de données...")
+    collector.collect_to_dataframe(TURBINE_ID, duration_hours=1, interval_min=5)
+    
+    # Ajout de données historiques
+    start_date = datetime(2024, 1, 1)
+    end_date = datetime(2024, 1, 2)
+    collector.get_historical_data(TURBINE_ID, start_date, end_date)
+    
+    # Sauvegarde
+    collector.save_to_csv("turbine_complete_data.csv")
+    collector.save_to_excel("turbine_data.xlsx")
+    
+    # Visualisation
+    collector.plot_standard_graphs()
+    
+    # Aperçu des données
+    print("\nAperçu des données collectées :")
+    print(collector.df.head())
+    print("\nColonnes disponibles :")
+    print(collector.df.columns.tolist())
