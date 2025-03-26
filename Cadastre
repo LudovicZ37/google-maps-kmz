@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# CONFIGURATION
+REPO_URL="https://github.com/LudovicZ37/google-maps-kmz.git"
+CLONE_DIR="google-maps-kmz"
+MODULE_DIR="odoo_modules"
+MODULE_NAME="zephyr_parcelles_map"
+
+# Clone du repo
+git clone "$REPO_URL"
+cd "$CLONE_DIR" || exit 1
+
+# Création du dossier module
+mkdir -p "$MODULE_DIR/$MODULE_NAME"
+
+# Téléchargement de l'archive du module depuis ChatGPT
+echo "Télécharge l'archive du module..."
+curl -L -o "$MODULE_NAME.zip" "sandbox:/mnt/data/zephyr_parcelles_map.zip"
+
+# Extraction dans le bon dossier
+unzip "$MODULE_NAME.zip" -d "$MODULE_DIR"
+rm "$MODULE_NAME.zip"
+
+# Git add, commit, push
+git add "$MODULE_DIR/$MODULE_NAME"
+git commit -m "Ajout du module Odoo : $MODULE_NAME"
+git push origin main
+
+echo "Module ajouté et poussé dans '$MODULE_DIR/$MODULE_NAME'"
